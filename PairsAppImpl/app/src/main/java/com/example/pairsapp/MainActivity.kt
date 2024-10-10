@@ -2,16 +2,14 @@ package com.example.pairsapp
 
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,24 +17,29 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,6 +54,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -61,8 +65,11 @@ import com.example.pairsapp.ui.theme.BreeSerif
 import com.example.pairsapp.ui.theme.LuckiestGuy
 import com.example.pairsapp.ui.theme.PairsAppTheme
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
+import eu.wewox.lazytable.LazyTable
+import eu.wewox.lazytable.LazyTableItem
+import eu.wewox.lazytable.lazyTableDimensions
+import java.util.regex.Pattern
 import kotlin.math.ceil
-import kotlin.math.exp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,28 +90,10 @@ fun navigation(): NavHostController {
         }
 
         composable("mainScreen") {
-            MainAppScreen(navController)
+            MainAppScreen()
         }
     }
     return navController
-}
-
-@Composable
-fun Header() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(100.dp)
-            .background(color = Color(100, 34, 100)),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            "Welcome To The Pairs App!", modifier = Modifier.padding(16.dp),
-            fontSize = 25.sp,
-            color = Color(225, 225, 225)
-        )
-    }
 }
 
 @Composable
@@ -168,13 +157,13 @@ fun GetStartedScreen(navController: NavHostController) {
 }
 
 @Composable
-fun MainAppScreen(navController: NavHostController) {
+fun MainAppScreen() {
     val context = LocalContext.current
     var teamSize by remember { mutableStateOf("") }
     var totalPlayers by remember { mutableStateOf("") }
     // Make this into an Enum down the line for the dropdown menu
     var selectedFile by remember { mutableStateOf("") }
-    val csv_files =
+    val csvFiles =
         listOf("Liverpool Players", "Saints Players", "Chelsea Players", "Random Players")
 
     var selectedSimilarity by remember { mutableStateOf("") }
@@ -186,11 +175,19 @@ fun MainAppScreen(navController: NavHostController) {
     )
 
     // Map for the teams once submit is clicked
-    var teams = mutableMapOf<String, List<String>>()
+    var teams by remember { mutableStateOf(mapOf<String, MutableList<Player>>()) }
+
+    // boolean for showing players.
+    var showPlayers by remember { mutableStateOf(false) }
+    
+    //mutable state that will be empty at the start. Will hold all players
+    var players by remember { mutableStateOf(listOf<Player>()) }
 
 
     Box {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())) {
             MainScreenHeader()
 
             OutlinedTextBoxForInput(
@@ -214,7 +211,7 @@ fun MainAppScreen(navController: NavHostController) {
             )
 
             MainAppScreenDropDownMenu(
-                items = csv_files,
+                items = csvFiles,
                 selectedItem = selectedFile,
                 onItemSelected = { selectedFile = it },
                 label = "Input File",
@@ -240,20 +237,121 @@ fun MainAppScreen(navController: NavHostController) {
             Button(
                 colors = ButtonDefaults.buttonColors(),
                 onClick = {
-                    teams = createTeams(
-                        context,
-                        teamSize.toInt(),
-                        totalPlayers.toInt(),
-                        selectedFile,
-                        selectedSimilarity
-                    )
+
+                    if (teamSize.isNotBlank() && totalPlayers.isNotBlank()
+                        && selectedFile.isNotBlank() && selectedSimilarity.isNotBlank()
+                        && totalPlayers >= teamSize && teamSize.toInt() > 0) {
+                        teams = createTeams(
+                            context,
+                            // Validating that our input is valid.
+                            teamSize.toInt(),
+                            // Validating that our input is valid.
+                            totalPlayers.toInt(),
+                            selectedFile,
+                            selectedSimilarity
+                        )
+                    }
                 },
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .width(170.dp)
+                    .padding(8.dp),
             ) {
                 Text("Make My Teams!")
+            }
+
+            if (teams.isNotEmpty()) {
+                DisplayTeamsTable(teams)
+            }
+
+            Button(
+                colors = ButtonDefaults.buttonColors(),
+                onClick = {
+                    if (selectedFile.isNotBlank()) {
+                        showPlayers = !showPlayers
+                        players = getPlayers(context, selectedFile)
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .width(170.dp)
+                    .padding(8.dp),
+            ) {
+                Text("Show Players")
+            }
+
+            Surface(modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .height(500.dp)) {
+                if (showPlayers && players.isNotEmpty()) {
+                    LazyColumn(modifier = Modifier.padding(16.dp)) {
+                        items(players) { player ->
+                            PlayerCard(player)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
             }
         }
 
     }
+}
+
+@Composable
+fun PlayerCard(player: Player) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = "${player.firstName} ${player.lastName}", style = MaterialTheme.typography.bodyLarge)
+            Text(text = "Skill Level: ${player.skillLevel}", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+        }
+    }
+}
+
+@Suppress("DEPRECATION")
+fun getPlayers(context: Context, selectedFile: String): List<Player> {
+
+    var validPlayers = listOf<Player>()
+
+    val inputFileMap = mapOf(
+        "Liverpool Players" to R.raw.liverpool_players_data,
+        "Saints Players" to R.raw.saints_players,
+        "Chelsea Players" to R.raw.team_chelsea,
+        "Random Players" to R.raw.unique_team_data
+    )
+
+    inputFileMap[selectedFile]?.let { selected ->
+        val inputStream = context.resources.openRawResource(selected)
+        csvReader().open(inputStream) {
+            readNext()
+            validPlayers = readAllAsSequence()
+                .filter { it.size >= 4 }
+                .map { row ->
+                    Player(
+                        row[0],
+                        row[1].replaceFirstChar { it.titlecaseChar() },
+                        row[2].replaceFirstChar { it.titlecaseChar() },
+                        SkillLevel.getSkillLevel(row[3])
+                    )
+                }
+                // filter out the invalid data from our list
+                .filter { p ->
+                    (isValidEmail(p.email) &&
+                            p.firstName.isNotBlank() &&
+                            p.lastName.isNotBlank() &&
+                            p.skillLevel != SkillLevel.UNKNOWN)
+                }
+                .toList()
+        }
+    }
+    return validPlayers
 }
 
 @Composable
@@ -263,7 +361,7 @@ fun MainScreenHeader() {
             painter = painterResource(id = R.drawable.mainappscreenbackgroundcropped),
             contentDescription = "Tennis ball laying on a green tennis court.",
             modifier = Modifier
-                .size(400.dp, 100.dp)
+                .size(500.dp, 100.dp)
                 .clip(RectangleShape),
             contentScale = ContentScale.Crop,
             alignment = Alignment.TopCenter
@@ -369,13 +467,19 @@ fun MainAppScreenDropDownMenu(
     }
 }
 
+@Suppress("DEPRECATION")
 fun createTeams(
     context: Context,
     teamSize: Int,
     totalPlayers: Int,
     selectedFile: String,
     selectedSimilarity: String
-): MutableMap<String, List<String>> {
+): MutableMap<String, MutableList<Player>> {
+
+    if (totalPlayers < teamSize || selectedFile.isEmpty() ||
+        selectedSimilarity.isEmpty() || teamSize < 1) {
+        throw IllegalArgumentException("Invalid input provided.")
+    }
 
     // Input File Map
     val inputFileMap = mapOf(
@@ -386,35 +490,162 @@ fun createTeams(
     )
 
     // selectedSimilarity Map
-    val similarityMap: Map<String, (Player, Player) -> Boolean> = mapOf(
-        "Same skill level" to {p1, p2 -> p1.skillLevel == p2.skillLevel},
-        "Names start with the same letter" to { p1 , p2 -> p1.firstName[0] == p2.firstName[0] },
-        "Names end with same letter" to {p1, p2 -> p1.lastName[0] == p2.lastName[0] },
-        "last names are same length" to {p1, p2 -> p1.lastName.length == p2.lastName.length}
+    val similarityMap: Map<String, (Player) -> Any> = mapOf(
+        "Same skill level" to { player -> player.skillLevel },
+        "Names start with the same letter" to { player -> player.firstName.firstOrNull()?.uppercase() ?: "" },
+        "Names end with the same letter" to { player -> player.lastName.lastOrNull()?.uppercase() ?: "" },
+        "Last names are the same length" to { player -> player.lastName.length }
     )
 
     // Maximum number of teams
-    val max_teams = ceil((totalPlayers / teamSize).toDouble())
+    ceil(totalPlayers.toDouble() / teamSize).toInt()
 
-    Log.d("Creating Teams", "createTeams: I reached here")
+    // Initialize an empty map for teams
+    val teams = mutableMapOf<String, MutableList<Player>>()
 
     // Now I need to read in the csv file line by line.
-    inputFileMap[selectedFile]?.let {
-        val inputStream = context.resources.openRawResource(it)
-        csvReader().open(inputStream)  {
-            val headerRow = readNext()
-            readAllAsSequence().forEach { player ->
-                Log.d("Creating Teams", "createTeams: $player")
+    inputFileMap[selectedFile]?.let { selected ->
+        val inputStream = context.resources.openRawResource(selected)
+        csvReader().open(inputStream) {
+            readNext()
+            val validPlayers = readAllAsSequence()
+                .filter { it.size >= 4 }
+                .map { row ->
+                    Player(
+                        row[0],
+                        row[1].replaceFirstChar { it.titlecaseChar() },
+                        row[2].replaceFirstChar { it.titlecaseChar() },
+                        SkillLevel.getSkillLevel(row[3])
+                    )
+                }
+                // filter out the invalid data from our list
+                .filter { p ->
+                    (isValidEmail(p.email) &&
+                            p.firstName.isNotBlank() &&
+                            p.lastName.isNotBlank() &&
+                            p.skillLevel != SkillLevel.UNKNOWN)
+                }
+                .toList()
+
+            // Group the players
+            val groupedPlayers = validPlayers.groupBy { similarityMap[selectedSimilarity]?.invoke(it) ?: "" }
+
+            // Make the teams from the grouping
+            var teamNumber = 1
+            groupedPlayers.forEach { (_, playersInGroup) ->
+                var index = 0
+                while (index < playersInGroup.size) {
+                    val currentTeamKey = "Team $teamNumber"
+                    val currentTeam = teams.getOrPut(currentTeamKey) { mutableListOf() }
+
+                    // Calculate the remaining spots
+                    val remainingSpots = teamSize - currentTeam.size
+
+                    // Get a slice of the players to add to the current team using
+                    // end index and remainingSpots
+                    val endIndex = (index + remainingSpots)
+                            // prevents out of bounds errors from occurring
+                        .coerceAtMost(playersInGroup.size)
+                    val playersToAdd = playersInGroup.subList(index, endIndex)
+
+                    // Add those players to the team we are building up
+                    currentTeam.addAll(playersToAdd)
+
+                    // Move the index forward after adding the players
+                    index += playersToAdd.size
+
+                    // Add to teamNumber to begin building the next team.
+                    if (currentTeam.size == teamSize) {
+                        teamNumber++
+                    }
+                }
             }
         }
     }
 
-    // Now that I can read it line by line, I'll filter the sequence.
-
-
-    return mutableMapOf()
-
+    // Return the populated teams
+    return teams
 }
+
+
+fun isValidEmail(email: String): Boolean {
+    val pattern = Pattern.compile(
+        "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}\$")
+    val matcher = pattern.matcher(email)
+    return matcher.matches()
+}
+
+@Composable
+fun DisplayTeamsTable(teams: Map<String, MutableList<Player>>) {
+    val columns = teams.size
+    val rows = teams.maxOf { it.value.size }
+
+    LazyTable(
+        dimensions = lazyTableDimensions(150.dp, 48.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(
+            count = columns,
+            layoutInfo = {
+                LazyTableItem(
+                    column = it % columns,
+                    row = 0,
+                )
+            },
+        ) { index ->
+            val teamName = teams.keys.elementAt(index)
+            HeaderCell(teamName)
+        }
+
+        items(
+            count = columns * rows,
+            layoutInfo = {
+                LazyTableItem(
+                    column = it % columns,
+                    row = (it / columns) + 1
+                )
+            },
+        ) { index ->
+            val teamIndex = index % columns
+            val rowIndex = (index / columns)
+
+            val teamName = teams.keys.elementAt(teamIndex)
+            val players = teams[teamName] ?: emptyList()
+
+            if (rowIndex < players.size) {
+                val player = players[rowIndex]
+                Cell(player.firstName, player.lastName)
+            } else {
+                Cell("", "")
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeaderCell(teamName: String) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.primary)
+            .border(Dp.Hairline, MaterialTheme.colorScheme.onPrimary)
+    ) {
+        Text(text = teamName, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun Cell(firstName: String, lastName: String) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.surface)
+            .border(Dp.Hairline, MaterialTheme.colorScheme.onSurface)
+    ) {
+        Text(text = "$firstName $lastName", style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
 
 @Preview(
     name = "GetStartedScreenUI",
@@ -438,7 +669,7 @@ fun GetStartedScreenPreview() {
 fun MainAppScreenPreview() {
 
     PairsAppTheme {
-        MainAppScreen(navController = rememberNavController())
+        MainAppScreen()
     }
 }
 
@@ -473,7 +704,6 @@ fun OutlinedTextBoxPreview() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Preview(
     name = "Dropdown Menu Preview",
     showBackground = true
