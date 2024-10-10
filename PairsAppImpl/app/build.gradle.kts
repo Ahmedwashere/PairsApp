@@ -60,9 +60,8 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
-    val navVersion = "2.8.2"
-    implementation("androidx.navigation:navigation-compose:$navVersion")
-    implementation("androidx.compose.ui:ui-text-google-fonts:1.7.3")
+    implementation(libs.androidx.ui.text.google.fonts)
+    implementation(libs.kotlin.csv.jvm) // For JVM platform
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
