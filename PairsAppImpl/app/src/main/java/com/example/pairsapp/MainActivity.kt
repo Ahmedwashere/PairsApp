@@ -100,7 +100,7 @@ fun navigation(): NavHostController {
 fun GetStartedScreen(navController: NavHostController) {
 
     Box {
-        Column {
+        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             Image(
                 painter = painterResource(id = R.drawable.pairslogoblack_nobackground),
                 contentDescription = "Pairs App Logo",
@@ -254,7 +254,7 @@ fun MainAppScreen() {
                 },
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .width(170.dp)
+                    .width(200.dp)
                     .padding(8.dp),
             ) {
                 Text("Make My Teams!")
@@ -721,6 +721,3 @@ fun MainAppScreenDropDownPreview() {
         modifier = Modifier.padding(16.dp)
     )
 }
-
-
-
